@@ -342,33 +342,63 @@ const [userMessage, setUserMessage] = useState('');
 const [analysis, setAnalysis] = useState(null);
 const [isAnalyzing, setIsAnalyzing] = useState(false);
 const [selectedTemplate, setSelectedTemplate] = useState(null);
+const [user, setUser] = useState(null);
 const [userProgress, setUserProgress] = useState({
     clarity: 75,
     tone: 68,
     personalization: 82,
-    subjectLines: 60
+    subjectLines: 60,
+    coldEmailsSent: 0,
+    scenariosCompleted: 0
 });
-const [currentUser, setCurrentUser] = useState(null);
+const [isEmailOpen, setIsEmailOpen] = useState(false);
+const [recentActivity, setRecentActivity] = useState([]);
+const [aiResponse, setAiResponse] = useState('');
 
-// Temporary code to list available models
+
+// Listen for auth state changes
 useEffect(() => {
-    const listModels = async () => {
-        try {
-            const models = await genAI.listModels();
-            console.log("Available models:", models);
-        } catch (error) {
-            console.error("Error listing models:", error);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        if (currentUser) {
+            // Load user progress and activity from localStorage
+            const savedProgress = localStorage.getItem(`progress_${currentUser.uid}`);
+            const savedActivity = localStorage.getItem(`activity_${currentUser.uid}`);
+            if (savedProgress) {
+                setUserProgress(JSON.parse(savedProgress));
+            }
+            if (savedActivity) {
+                setRecentActivity(JSON.parse(savedActivity));
+            }
+        } else {
+            // Clear state on sign out
+            setUserProgress({
+                clarity: 75,
+                tone: 68,
+                personalization: 82,
+                subjectLines: 60,
+                coldEmailsSent: 0,
+                scenariosCompleted: 0
+            });
+            setRecentActivity([]);
         }
-    };
-    listModels();
+    });
+    return () => unsubscribe();
 }, []);
 
+// Save activity when it changes
 useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-    setCurrentUser(user);
-  });
-  return () => unsubscribe();
-}, []);
+    if (user) {
+        localStorage.setItem(`activity_${user.uid}`, JSON.stringify(recentActivity));
+    }
+}, [recentActivity, user]);
+
+// Save progress when it changes
+useEffect(() => {
+    if (user) {
+        localStorage.setItem(`progress_${user.uid}`, JSON.stringify(userProgress));
+    }
+}, [userProgress, user]);
 
 // Add this at the start of your component
 useEffect(() => {
@@ -394,7 +424,7 @@ useEffect(() => {
     testConnection();
 }, []);
 
-// Replace the mock analyzeMessage function with this real implementation
+// Update the analyzeMessage function to update progress metrics
 const analyzeMessage = async (message, scenario) => {
     setIsAnalyzing(true);
     
@@ -460,6 +490,31 @@ const analyzeMessage = async (message, scenario) => {
         // Parse the JSON response
         const analysis = JSON.parse(cleaned);
         setAnalysis(analysis);
+        
+        // Update user progress with new scores
+        setUserProgress(prev => ({
+            ...prev,
+            clarity: Math.round((prev.clarity + analysis.clarity) / 2),
+            tone: Math.round((prev.tone + analysis.tone) / 2),
+            personalization: Math.round((prev.personalization + analysis.personalization) / 2),
+            subjectLines: Math.round((prev.subjectLines + analysis.subjectLine) / 2),
+            scenariosCompleted: prev.scenariosCompleted + 1
+        }));
+        
+        // Add to recent activity with formatted analysis
+        const newActivity = {
+            type: 'scenario',
+            scenario: scenario.title,
+            userMessage: message,
+            analysis: {
+                overallScore: analysis.overallScore,
+                feedback: analysis.feedback[0],
+                suggestion: analysis.suggestions[0]
+            },
+            timestamp: new Date().toISOString()
+        };
+        setRecentActivity(prev => [newActivity, ...prev].slice(0, 10));
+        
     } catch (error) {
         console.error("Analysis error:", error);
         // Fallback to mock data if there's an error
@@ -488,10 +543,19 @@ const analyzeMessage = async (message, scenario) => {
     }
 };
 
+// Update the handleScenarioSelect function
+const handleScenarioSelect = (scenario) => {
+    setSelectedScenario(scenario);
+    setUserMessage('');
+    setAiResponse('');
+    setAnalysis(null); // Reset analysis state
+};
+
+// Update the scenario card click handler
 const ScenarioCard = ({ scenario, onClick }) => (
     <div 
-        className="skill-card bg-white rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl border border-gray-100"
-        onClick={() => onClick(scenario)}
+        className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow cursor-pointer"
+        onClick={() => handleScenarioSelect(scenario)}
     >
         <div className="flex justify-between items-start mb-3">
             <h3 className="text-lg font-semibold text-gray-800">{scenario.title}</h3>
@@ -530,22 +594,24 @@ const TemplateCard = ({ template }) => (
                 {template.content}
             </pre>
         </div>
-        <div className="flex gap-2">
-            <button 
-                onClick={() => setUserMessage(template.content)}
-                className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-                <EditIcon />
-                <span className="ml-1">Use Template</span>
-            </button>
-            <button 
-                onClick={() => setSelectedTemplate(template)}
-                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-                <EyeIcon />
-                <span className="ml-1">Preview</span>
-            </button>
-        </div>
+        <button
+            onClick={() => {
+                navigator.clipboard.writeText(template.content);
+                // Show a temporary success message
+                const button = document.activeElement;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('bg-green-500');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500');
+                }, 2000);
+            }}
+            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+            <EditIcon />
+            <span className="ml-1">Use Template</span>
+        </button>
     </div>
 );
 
@@ -597,6 +663,57 @@ const VocabularyCard = ({ category, tips }) => (
     </div>
 );
 
+const signInWithGoogle = async () => {
+    try {
+        const result = await signInWithPopup(auth, provider);
+        setUser(result.user);
+    } catch (error) {
+        console.error("Error signing in with Google:", error);
+    }
+};
+
+const logout = async () => {
+    try {
+        await signOut(auth);
+        setUser(null);
+    } catch (error) {
+        console.error("Error signing out:", error);
+    }
+};
+
+const incrementColdEmails = () => {
+    setUserProgress(prev => ({
+        ...prev,
+        coldEmailsSent: prev.coldEmailsSent + 1
+    }));
+    addActivity('Cold email sent', 'MessageCircleIcon', 'blue');
+};
+
+const incrementScenarios = () => {
+    setUserProgress(prev => ({
+        ...prev,
+        scenariosCompleted: prev.scenariosCompleted + 1
+    }));
+    addActivity('Practice scenario completed', 'BookOpenIcon', 'purple');
+};
+
+const addActivity = (text, icon, color) => {
+    const newActivity = {
+        text,
+        icon,
+        color,
+        timestamp: new Date().toISOString()
+    };
+    setRecentActivity(prev => [newActivity, ...prev].slice(0, 10)); // Keep only last 10 activities
+};
+
+const handleCloseEmail = () => {
+    setIsEmailOpen(false);
+    setAiResponse('');
+    setUserMessage('');
+    setSelectedScenario(null);
+};
+
 const renderTabContent = () => {
     switch(activeTab) {
         case 'scenarios':
@@ -606,7 +723,12 @@ const renderTabContent = () => {
                         <div className="space-y-6">
                             <div className="flex items-center gap-4">
                                 <button 
-                                    onClick={() => setSelectedScenario(null)}
+                                    onClick={() => {
+                                        setSelectedScenario(null);
+                                        setUserMessage('');
+                                        setAiResponse('');
+                                        setAnalysis(null); // Reset analysis state
+                                    }}
                                     className="text-blue-600 hover:text-blue-800"
                                 >
                                     ← Back to Scenarios
@@ -736,6 +858,7 @@ const renderTabContent = () => {
                                     />
                                 ))}
                             </div>
+
                         </div>
                     )}
                 </div>
@@ -769,6 +892,27 @@ const renderTabContent = () => {
                         </p>
                     </div>
                     
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-semibold text-gray-800">Cold Emails Sent</h3>
+                                    <p className="text-gray-600">Track your outreach progress</p>
+                                </div>
+                                <div className="text-4xl font-bold text-blue-500">{userProgress.coldEmailsSent}</div>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-semibold text-gray-800">Scenarios Completed</h3>
+                                    <p className="text-gray-600">Practice makes perfect</p>
+                                </div>
+                                <div className="text-4xl font-bold text-purple-500">{userProgress.scenariosCompleted}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <ProgressChart label="Clarity" value={userProgress.clarity} color="bg-blue-500" />
                         <ProgressChart label="Tone" value={userProgress.tone} color="bg-green-500" />
@@ -794,42 +938,44 @@ const renderTabContent = () => {
                             <span className="ml-2">Recent Activity</span>
                         </h3>
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                                <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                        <MessageCircleIcon />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-800">Completed "Cold Email to Researcher"</p>
-                                        <p className="text-sm text-gray-600">Score: 85% - Great job on personalization!</p>
+                            {recentActivity.map((activity, index) => (
+                                <div key={index} className="flex items-center justify-between py-3 border-b border-gray-200">
+                                    <div className="flex items-center">
+                                        <div className={`w-10 h-10 bg-${activity.type === 'scenario' ? 'purple' : 'blue'}-100 rounded-full flex items-center justify-center mr-3`}>
+                                            {activity.type === 'scenario' ? <BookOpenIcon /> : <MessageCircleIcon />}
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-800">
+                                                {activity.type === 'scenario' ? `Completed: ${activity.scenario}` : 'Cold Email Sent'}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {new Date(activity.timestamp).toLocaleString()}
+                                            </p>
+                                            {activity.type === 'scenario' && (
+                                                <div className="mt-2 text-sm">
+                                                    <p className="text-gray-700"><strong>Your Message:</strong> {activity.userMessage}</p>
+                                                    {activity.analysis && (
+                                                        <>
+                                                            <p className="text-gray-700 mt-1">
+                                                                <strong>Score:</strong> {activity.analysis.overallScore}%
+                                                            </p>
+                                                            <p className="text-gray-700 mt-1">
+                                                                <strong>Feedback:</strong> {activity.analysis.feedback}
+                                                            </p>
+                                                            <p className="text-gray-700 mt-1">
+                                                                <strong>Suggestion:</strong> {activity.analysis.suggestion}
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                <span className="text-sm text-gray-500">2 hours ago</span>
-                            </div>
-                            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                                <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                                        <AwardIcon />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-800">Earned "Research Pro" badge</p>
-                                        <p className="text-sm text-gray-600">Excelled in research outreach scenarios</p>
-                                    </div>
-                                </div>
-                                <span className="text-sm text-gray-500">1 day ago</span>
-                            </div>
-                            <div className="flex items-center justify-between py-3">
-                                <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                                        <BookOpenIcon />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-800">Used "Thank You Follow-up" template</p>
-                                        <p className="text-sm text-gray-600">Customized for career fair follow-up</p>
-                                    </div>
-                                </div>
-                                <span className="text-sm text-gray-500">3 days ago</span>
-                            </div>
+                            ))}
+                            {recentActivity.length === 0 && (
+                                <p className="text-gray-500 text-center py-4">No recent activity</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -885,9 +1031,9 @@ return (
                         <h1 className="ml-3 text-2xl font-bold">NetworkPrep</h1>
                     </div>
                     <nav className="hidden md:flex space-x-8">
-                    {currentUser ? (
+                    {user ? (
                     <div className="flex items-center gap-3">
-                      <span className="hidden md:inline text-sm font-medium">{currentUser.displayName}</span>
+                      <span className="hidden md:inline text-sm font-medium">{user.displayName}</span>
                       <button onClick={logout} className="bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 text-sm">
                         Sign Out
                       </button>
@@ -913,7 +1059,7 @@ return (
         <section className="gradient-bg text-white py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 className="text-4xl md:text-6xl font-bold mb-6" id = "network-introduction">
-                    {!currentUser ? "Master Professional Networking" : currentUser.displayName + " -- improving their networking skills!"}
+                    {!user ? "Master Professional Networking" : user.displayName + " -- improving their networking skills!"}
                 </h2>
                 <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto opacity-90">
                     AI-powered platform to improve your networking emails, practice real scenarios, and build meaningful professional relationships.
@@ -1006,24 +1152,27 @@ return (
                 </div>
             </div>
         </footer>
+
+        {isEmailOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">{selectedScenario?.title}</h3>
+                        <button
+                            onClick={handleCloseEmail}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {/* Rest of your email modal content */}
+                </div>
+            </div>
+        )}
     </div>
 );
 }
-
-export const signInWithGoogle = async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error("Google Sign-In Error:", error);
-  }
-};
-
-export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Sign-out Error:", error);
-  }
-};
 
 export default NetworkingPlatform;
