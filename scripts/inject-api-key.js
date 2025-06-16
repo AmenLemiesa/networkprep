@@ -1,19 +1,18 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Read the built index.html
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const indexPath = path.join(__dirname, '../dist/index.html');
-const indexContent = fs.readFileSync(indexPath, 'utf8');
+const apiKey = process.env.GEMINI_API_KEY;
 
-// Create a script tag with the API key
-const apiKeyScript = `
-<script>
-  window.__GEMINI_API_KEY__ = "${process.env.VITE_GEMINI_API_KEY}";
-</script>
-`;
+if (!apiKey) {
+  console.error('VITE_GEMINI_API_KEY environment variable is not set');
+  process.exit(1);
+}
 
-// Insert the script tag before the closing head tag
-const modifiedContent = indexContent.replace('</head>', `${apiKeyScript}</head>`);
-
-// Write the modified content back
-fs.writeFileSync(indexPath, modifiedContent); 
+let html = fs.readFileSync(indexPath, 'utf8');
+html = html.replace('VITE_GEMINI_API_KEY', apiKey);
+fs.writeFileSync(indexPath, html); 
