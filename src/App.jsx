@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Initialize Gemini with fallback for development
+const getApiKey = () => {
+    // In development, use the environment variable
+    if (import.meta.env.DEV) {
+        return import.meta.env.VITE_GEMINI_API_KEY;
+    }
+    // In production, use the window.__GEMINI_API_KEY__ that we'll inject
+    return window.__GEMINI_API_KEY__;
+};
+
+const genAI = new GoogleGenerativeAI(getApiKey(), {
+    apiVersion: 'v1beta'
+});
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
@@ -336,6 +350,19 @@ const [userProgress, setUserProgress] = useState({
 });
 const [currentUser, setCurrentUser] = useState(null);
 
+// Temporary code to list available models
+useEffect(() => {
+    const listModels = async () => {
+        try {
+            const models = await genAI.listModels();
+            console.log("Available models:", models);
+        } catch (error) {
+            console.error("Error listing models:", error);
+        }
+    };
+    listModels();
+}, []);
+
 useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (user) => {
     setCurrentUser(user);
@@ -343,45 +370,122 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 
-// Mock AI analysis function
+// Add this at the start of your component
+useEffect(() => {
+    console.log("API Key available:", !!import.meta.env.VITE_GEMINI_API_KEY);
+    console.log("API Key length:", import.meta.env.VITE_GEMINI_API_KEY?.length);
+    
+    // Test the API connection
+    const testConnection = async () => {
+        try {
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const result = await model.generateContent({
+                contents: [{
+                    parts: [{
+                        text: "Hello"
+                    }]
+                }]
+            });
+            console.log("API connection test successful");
+        } catch (error) {
+            console.error("API connection test failed:", error);
+        }
+    };
+    testConnection();
+}, []);
+
+// Replace the mock analyzeMessage function with this real implementation
 const analyzeMessage = async (message, scenario) => {
     setIsAnalyzing(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const mockAnalysis = {
-        overallScore: Math.floor(Math.random() * 30) + 70,
-        clarity: Math.floor(Math.random() * 20) + 80,
-        tone: Math.floor(Math.random() * 25) + 70,
-        personalization: Math.floor(Math.random() * 30) + 65,
-        subjectLine: Math.floor(Math.random() * 25) + 75,
-        feedback: [
-            "Strong opening that clearly states your purpose",
-            "Consider adding more specific details about why you're interested",
-            "The tone is professional but could be more conversational",
-            "Good use of personalization with specific references"
-        ],
-        suggestions: [
-            "Try: 'I was particularly intrigued by your recent paper on...'",
-            "Consider ending with: 'I'd appreciate any insights you might share'",
-            "Your subject line could be more specific",
-            "Add a brief mention of how you found their contact information"
-        ],
-        toneAnalysis: {
-            formality: 75,
-            confidence: 68,
-            friendliness: 82
-        },
-        vocabularyImprovements: [
-            { original: "I hope this finds you well", improved: "I hope you're having a great week" },
-            { original: "I would like to", improved: "I'd love to" },
-            { original: "Please let me know", improved: "I'd appreciate hearing your thoughts" }
-        ]
-    };
-    
-    setAnalysis(mockAnalysis);
-    setIsAnalyzing(false);
+    try {
+        // Check if API key is available
+        if (!getApiKey()) {
+            throw new Error("API key not configured. Please set up your API key in GitHub Secrets.");
+        }
+
+        // Use the correct model name
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash",
+            generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 1024,
+            }
+        });
+        
+        const prompt = `Analyze this networking email for a ${scenario.title} scenario. 
+        The email is: "${message}"
+        
+        Provide a detailed analysis in the following JSON format:
+        {
+            "overallScore": number (0-100),
+            "clarity": number (0-100),
+            "tone": number (0-100),
+            "personalization": number (0-100),
+            "subjectLine": number (0-100),
+            "feedback": string[],
+            "suggestions": string[],
+            "toneAnalysis": {
+                "formality": number (0-100),
+                "confidence": number (0-100),
+                "friendliness": number (0-100)
+            },
+            "vocabularyImprovements": [
+                {
+                    "original": string,
+                    "improved": string
+                }
+            ]
+        }
+        
+        Focus on professional networking context and provide specific, actionable feedback.`;
+
+        // Create the content parts as expected by the API
+        const result = await model.generateContent({
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }]
+        });
+
+        const response = await result.response;
+        const text = response.text();
+        
+        // Clean the response text to ensure it's valid JSON
+        const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+        
+        // Parse the JSON response
+        const analysis = JSON.parse(cleaned);
+        setAnalysis(analysis);
+    } catch (error) {
+        console.error("Analysis error:", error);
+        // Fallback to mock data if there's an error
+        const mockAnalysis = {
+            overallScore: 75,
+            clarity: 80,
+            tone: 70,
+            personalization: 65,
+            subjectLine: 75,
+            feedback: ["Error analyzing email. Please try again."],
+            suggestions: [
+                error.message === "API key not configured. Please set up your API key in GitHub Secrets."
+                    ? "Please configure your API key in GitHub Secrets."
+                    : "Make sure your API key is properly configured."
+            ],
+            toneAnalysis: {
+                formality: 75,
+                confidence: 68,
+                friendliness: 82
+            },
+            vocabularyImprovements: []
+        };
+        setAnalysis(mockAnalysis);
+    } finally {
+        setIsAnalyzing(false);
+    }
 };
 
 const ScenarioCard = ({ scenario, onClick }) => (
