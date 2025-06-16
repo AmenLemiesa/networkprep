@@ -18,57 +18,26 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-<<<<<<< HEAD
-    defaults:
-      run:
-        working-directory: ./networkprep
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-=======
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
->>>>>>> 32230ec (Restructure: move project to root and restore workflow)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: 'npm'
-<<<<<<< HEAD
-          cache-dependency-path: './networkprep/package-lock.json'
-      
       - name: Install dependencies
         run: npm install
-      
-=======
-      - name: Install dependencies
-        run: npm install
->>>>>>> 32230ec (Restructure: move project to root and restore workflow)
       - name: Build
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run build
-<<<<<<< HEAD
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './networkprep/dist'
-=======
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
->>>>>>> 32230ec (Restructure: move project to root and restore workflow)
 
   deploy:
     environment:
