@@ -12,6 +12,8 @@ const getApiKey = () => {
     return window.__GEMINI_API_KEY__;
 };
 
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
 const genAI = new GoogleGenerativeAI(getApiKey(), {
     apiVersion: 'v1beta'
 });
