@@ -8,7 +8,7 @@ const getApiKey = () => {
     if (import.meta.env.DEV) {
         return import.meta.env.VITE_GEMINI_API_KEY;
     }
-    // In production, use the window.__GEMINI_API_KEY__ that we'll inject
+    // In production, use the injected key
     return window.__GEMINI_API_KEY__;
 };
 

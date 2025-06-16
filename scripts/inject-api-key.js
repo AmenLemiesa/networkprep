@@ -9,10 +9,11 @@ const indexPath = path.join(__dirname, '../dist/index.html');
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.error('VITE_GEMINI_API_KEY environment variable is not set');
+  console.error('GEMINI_API_KEY environment variable is not set');
   process.exit(1);
 }
 
 let html = fs.readFileSync(indexPath, 'utf8');
-html = html.replace('VITE_GEMINI_API_KEY', apiKey);
+const scriptTag = `<script>window.__GEMINI_API_KEY__ = "${apiKey}";</script>`;
+html = html.replace('</head>', `${scriptTag}</head>`);
 fs.writeFileSync(indexPath, html); 
