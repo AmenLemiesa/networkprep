@@ -1,7 +1,7 @@
 # NetworkPrep
 
-![Home Page](dist/SSNetwork1.png)
-![Progress Report](dist/SSNetwork2.png)
+![Home Page](screenshots/SSNetwork1.png)
+![Progress Report](screenshots/SSNetwork2.png)
 
 
 
