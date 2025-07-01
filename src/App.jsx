@@ -1021,7 +1021,7 @@ const renderTabContent = () => {
 return (
     <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="gradient-bg text-white shadow-lg">
+        <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center py-6">
                     <div className="flex items-center">
@@ -1082,8 +1082,8 @@ return (
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center px-6 py-3 rounded-full font-medium transition-all duration-300 ${
                             activeTab === tab.id 
-                                ? 'tab-active text-white shadow-lg transform scale-105' 
-                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg transform scale-105' 
+                                : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200'
                         }`}
                     >
                         {tab.icon}
