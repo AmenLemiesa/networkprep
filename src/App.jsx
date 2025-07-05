@@ -1030,24 +1030,20 @@ return (
                         </div>
                         <h1 className="ml-3 text-2xl font-bold">NetworkPrep</h1>
                     </div>
-                    <nav className="hidden md:flex space-x-8">
+                    <div className="hidden md:flex items-center gap-3">
                     {user ? (
-                    <div className="flex items-center gap-3">
-                      <span className="hidden md:inline text-sm font-medium">{user.displayName}</span>
-                      <button onClick={logout} className="bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 text-sm">
-                        Sign Out
+                      <>
+                        <span className="hidden md:inline text-sm font-medium">{user.displayName}</span>
+                        <button onClick={logout} className="bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 text-sm">
+                          Sign Out
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={signInWithGoogle} className="bg-green-600 text-white px-3 py-1 rounded-full hover:bg-green-700 text-sm">
+                        Sign in with Google
                       </button>
+                    )}
                     </div>
-                  ) : (
-                    <button onClick={signInWithGoogle} className="bg-green-600 text-white px-3 py-1 rounded-full hover:bg-green-700 text-sm">
-                      Sign in with Google
-                    </button>
-                  )}
-
-                        <a href="#" className="hover:text-blue-200 transition-colors">Home</a>
-                        <a href="#" className="hover:text-blue-200 transition-colors">About</a>
-                        <a href="#" className="hover:text-blue-200 transition-colors">Contact</a>
-                    </nav>
                     <div className="md:hidden">
                         <MenuIcon />
                     </div>
@@ -1099,49 +1095,9 @@ return (
         </main>
 
         {/* Footer */}
-        <footer className="bg-gray-800 text-white py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <div>
-                        <div className="flex items-center mb-4">
-                            <NetworkIcon />
-                            <h3 className="ml-2 text-xl font-bold">NetworkPrep</h3>
-                        </div>
-                        <p className="text-gray-400">
-                            Empowering professionals to build meaningful connections through AI-powered networking tools.
-                        </p>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-4">Features</h4>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><a href="#" className="hover:text-white transition-colors">Practice Scenarios</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Email Templates</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">AI Analysis</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Progress Tracking</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-4">Resources</h4>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Guides</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Best Practices</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-4">Company</h4>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">Terms</a></li>
-                        </ul>
-                    </div>
-                </div>
-                <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-                    <p>&copy; 2024 NetworkPrep. All rights reserved.</p>
-                </div>
+        <footer className="bg-gray-800 text-white py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <p className="text-gray-400">&copy; 2025 NetworkPrep. All rights reserved.</p>
             </div>
         </footer>
 
